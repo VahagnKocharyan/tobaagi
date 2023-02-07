@@ -19,8 +19,13 @@ from config import *
 from composedatetime import *
 from sockettoba import *
 
-
-
+"""current context"""
+C='toba-in-two'
+"""spy extension"""
+S='spyonchannel'
+"""called and callee channel extensions"""
+cllc='called_channel'
+cllce='callee_channel'
 
 class SpeechTranscriptionApp:
 
@@ -47,6 +52,8 @@ class SpeechTranscriptionApp:
         self.voice='en-US-Wavenet-C'
         self.calleeid=None
         os.environ[TRANSLATEKEYTYPE] = TRANSLATEKEYPATH
+        
+        
 
 
     def get_callerid(self):
@@ -545,6 +552,7 @@ class SpeechTranscriptionApp:
                 # agi.appexec('originate','local/786@from-phone1,app,Chanspy,",Bd(SIP/%s)Eoqw",,,av(SPYCHANNEL=CALLER^GLOBALID=${SIP_HEADER(Call-ID)})c' % dtmf)
                 # agi.appexec('originate','local/786@from-phone1,app,Chanspy,",Bd(SIP/%s)Eoqw",,,v(SPYCHANNEL=CALLER^GLOBALID=${SIP_HEADER(Call-ID)})c' % self.get_callerid())
                 self.action='Stoptalking'
+    # def setspygoups(self):
 
     def number_selection(self):
         if self.action=='Selectnumber_dtmf':
@@ -557,6 +565,12 @@ class SpeechTranscriptionApp:
                 agi.set_variable('number','%s' %dtmf)
                 agi.set_variable('primarylanguage','%s' %self.primary_language['Rcode'])
                 agi.set_variable('guestlanguage','%s' %self.guest_languages['Rcode'])
+                # agi.set_variable('OPTIONScllc',",bBg(CALLER)Eqow")
+                # agi.set_variable('OPTIONScllce',",bBg(CALLEE)Eqow")
+                # exten => s,2,Dial(PJSIP/${ARG1}@VoiceConnector,20,b(uniastspy^called_channel^1(AGENT))B(uniastspy^callee_channel^1(CALLER))tU(originate__spy^${CHANNEL(pjsip,call-id)},${CALLERID(num)},${CALLERID(dnid)}))
+                agi.appexec('dial',f'SIP/{dtmf}@441651,20,b({C}^{cllce}^1(CALLEE))B({C}^{cllc}^1(CALLER))tU({S}^{self.get_Call_ID_header()}^{self.get_callerid()}^{dtmf})')
+                # agi.appexec('originate','agi(tobamongo/tobalast.py),app,Chanspy,",Bd(SIP/%s)Eoqw",,,av(SPYCHANNEL=CALLER^GLOBALID=${SIP_HEADER(Call-ID)})c' % dtmf)
+
                 # agi.appexec('originate','local/%s@clickincontext,exten,,,,,v(SPYCHANNEL=CALLER^GLOBALID=${SIP_HEADER(Call-ID)})c '%dtmf)
                 # agi.appexec('originate','local/786@from-phone1,app,Chanspy,",Bd(SIP/%s)Eoqw",,,av(SPYCHANNEL=CALLER^GLOBALID=${SIP_HEADER(Call-ID)})c' % dtmf)
                 self.action='Stoptalking'
@@ -734,13 +748,17 @@ class SpeechTranscriptionApp:
 agi = AGI()
 
 
-try:
-    transcribe_app = SpeechTranscriptionApp()
-    toba_db = TobaDbConnector()
-    socketapp=SocketToba(transcribe_app.get_callerid())
-    transcribe_app.LanguageSettingLoop()
-    socketapp.disconnectt()
-    agi.verbose('exiting')
+transcribe_app = SpeechTranscriptionApp()
+toba_db = TobaDbConnector()
+socketapp=SocketToba(transcribe_app.get_callerid())
+"""to replace or register a method in the other class"""
+def new_test_hangup():
+    if agi._got_sighup:
+        socketapp.disconnectt()
+        # agi.hangup()
+        
+agi.test_hangup = new_test_hangup
 
-except AGIHangup:
-    socketapp.disconnectt()
+transcribe_app.LanguageSettingLoop()
+socketapp.disconnectt()
+agi.verbose('exiting')
